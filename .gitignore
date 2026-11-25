@@ -29,3 +29,7 @@ Thumbs.db
 # 数据库文件
 *.db
 *.sqlite
+
+# 本地反思私享日志与公共索引巡检状态缓存
+/cit-reflection/
+.patrol-state.json
