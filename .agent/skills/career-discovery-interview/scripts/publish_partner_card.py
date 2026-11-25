@@ -19,7 +19,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+import sync_public_index  # noqa: E402
 
 
 def find_lark_cli() -> str | None:
@@ -96,8 +103,10 @@ def parse_partner_card_md(md_text: str) -> dict[str, str]:
         "weekly_budget": "",
         "schedule_blackout": "",
         "experiment": "",
+        "playbooks": "",
+        "active_blockers": "",
         "generated_at": "2026-11-22",
-        "schema_version": "qt-partner-card/v1",
+        "schema_version": "qt-partner-card/v1.1",
     }
 
     section = ""
@@ -116,6 +125,8 @@ def parse_partner_card_md(md_text: str) -> dict[str, str]:
                 section = "interface"
             elif "实验" in heading or "自述" in heading or "短帖" in heading:
                 section = "experiment"
+            elif "动态脉冲" in heading or "脉冲" in heading or "活跃困惑" in heading:
+                section = "pulse"
             else:
                 section = ""
             continue
@@ -140,6 +151,10 @@ def parse_partner_card_md(md_text: str) -> dict[str, str]:
                 parsed["weekly_budget"] = val_raw
             elif "Schedule-Blackout" in key_raw:
                 parsed["schedule_blackout"] = val_raw
+            elif "Playbooks" in key_raw or "进展" in key_raw or "可复用经验" in key_raw:
+                parsed["playbooks"] = val_raw
+            elif "Active-Blockers" in key_raw or "活跃困惑" in key_raw or "当前困惑" in key_raw:
+                parsed["active_blockers"] = val_raw
             continue
 
         clean = strip_md_inline(line.lstrip("> ").strip())
@@ -164,6 +179,21 @@ def build_rich_html(
     exp_paragraphs = "".join(
         f"<p>{esc(p)}</p>" for p in (fields["experiment"] or "").splitlines() if p.strip()
     )
+    pulse_section = ""
+    if fields.get("playbooks") or fields.get("active_blockers"):
+        playbooks_html = esc(fields.get("playbooks") or "暂无更新（见 2 周微实验）")
+        blockers_html = esc(fields.get("active_blockers") or "暂无挂出困惑")
+        pulse_section = f"""
+    <section class="bento">
+      <div class="card">
+        <div class="card-head" style="color:#0f766e;">🧩 PLAYBOOKS · 近期进展与可复用经验</div>
+        <p>{playbooks_html}</p>
+      </div>
+      <div class="card">
+        <div class="card-head" style="color:#b45309;">❓ ACTIVE-BLOCKERS · 当前活跃困惑</div>
+        <p>{blockers_html}</p>
+      </div>
+    </section>"""
 
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -413,7 +443,7 @@ def build_rich_html(
         <span>✔ 偏异步深潜 · 少开同步长会</span>
         <span>✔ 跑通成果双方共同署名</span>
       </div>
-    </section>
+    </section>{pulse_section}
   </div>
 </body>
 </html>
@@ -440,7 +470,7 @@ def build_docx_xml(
         if open_id.startswith("ou_")
         else "<b>名片主人</b>"
     )
-    return f"""<title>{xml_esc(title)}</title>
+    base_xml = f"""<title>{xml_esc(title)}</title>
 <callout emoji="👋" background-color="light-blue" border-color="blue">
   <p><b>看对眼想搭伙？</b>直接点击右侧飞书头像即可一键发起私聊 👉 {cite_xml}（支持先用 2 周微实验低成本试跑，开工前对齐小目标与署名）</p>
 </callout>
@@ -460,8 +490,16 @@ def build_docx_xml(
 </grid>
 <callout emoji="🛡" background-color="light-gray" border-color="gray">
   <p><b>协作边界（Avoid）</b>：{xml_esc(fields["avoid"])}<br/><b>投入节奏与时段</b>：{xml_esc(fields["weekly_budget"])}｜{xml_esc(fields["schedule_blackout"])}</p>
-</callout>
-"""
+</callout>"""
+    pulse_xml = ""
+    if fields.get("playbooks") or fields.get("active_blockers"):
+        pb = xml_esc(fields.get("playbooks") or "暂无更新")
+        ab = xml_esc(fields.get("active_blockers") or "暂无挂出困惑")
+        pulse_xml = f"""
+<callout emoji="📡" background-color="light-yellow" border-color="yellow">
+  <p><b>近期进展与可复用经验（Playbooks）</b>：{pb}<br/><b>当前活跃困惑（Active-Blockers）</b>：{ab}</p>
+</callout>"""
+    return base_xml + pulse_xml + "\n"
 
 
 def apply_feishu_share(lark_bin: str, doc_id: str, share: str) -> tuple[str, str | None]:
@@ -530,6 +568,8 @@ def publish_feishu(
     subheadline: str,
     share: str,
     confirm_share: bool,
+    registry_doc: str = "",
+    confirm_registry: bool = False,
 ) -> dict:
     state = load_state(state_path)
     doc_id = state.get("feishu_doc_id")
@@ -550,6 +590,25 @@ def publish_feishu(
         build_docx_xml(title, "./partner-card.html", open_id, fields),
         encoding="utf-8",
     )
+
+    def _maybe_sync_registry(final_doc_id: str, final_url: str) -> dict | None:
+        if not confirm_registry:
+            return None
+        target_reg = sync_public_index.resolve_registry_doc(registry_doc, state_path)
+        if not target_reg:
+            return {"status": "skipped", "reason": "no_registry_doc_configured"}
+        reg_res = sync_public_index.upsert_member_to_registry(
+            lark_bin=lark_bin,
+            registry_doc=target_reg,
+            card_path=card_path,
+            homepage_url=final_url,
+            homepage_doc_id=final_doc_id,
+        )
+        if reg_res.get("status") == "ok":
+            state["registry_doc_id"] = reg_res["registry_doc_id"]
+            state["registry_block_id"] = reg_res.get("block_id", "")
+            save_state(state_path, state)
+        return reg_res
 
     if doc_id:
         upd = run_cmd(
@@ -577,14 +636,19 @@ def publish_feishu(
                 applied_share, share_warn = apply_feishu_share(lark_bin, doc_id, share)
                 state["feishu_share"] = applied_share
                 save_state(state_path, state)
-            return {
+            final_url = url or f"feishu://docx/{doc_id}"
+            result = {
                 "status": "ok",
                 "channel": "feishu_rich_xml_html5",
                 "action": "updated_in_place",
-                "url": url or f"feishu://docx/{doc_id}",
+                "url": final_url,
                 "share": applied_share,
                 "warning": share_warn,
             }
+            reg_res = _maybe_sync_registry(doc_id, final_url)
+            if reg_res is not None:
+                result["registry"] = reg_res
+            return result
 
     crt = run_cmd(
         [
@@ -633,7 +697,7 @@ def publish_feishu(
         }
     )
     save_state(state_path, state)
-    return {
+    result = {
         "status": "ok",
         "channel": "feishu_rich_xml_html5",
         "action": "created",
@@ -641,6 +705,10 @@ def publish_feishu(
         "share": applied_share,
         "warning": share_warn,
     }
+    reg_res = _maybe_sync_registry(new_doc_id, new_url or "")
+    if reg_res is not None:
+        result["registry"] = reg_res
+    return result
 
 
 def main() -> int:
@@ -660,6 +728,16 @@ def main() -> int:
         "--confirm-share",
         action="store_true",
         help="Pass only after the student explicitly confirms making the link readable.",
+    )
+    parser.add_argument(
+        "--registry-doc",
+        default="",
+        help="Optional Feishu public index doc token/URL to register or update this member's digest block.",
+    )
+    parser.add_argument(
+        "--confirm-registry",
+        action="store_true",
+        help="Pass only after the student explicitly agrees to sync their card summary to the public index doc.",
     )
     args = parser.parse_args()
 
@@ -691,6 +769,8 @@ def main() -> int:
         args.subheadline,
         args.share,
         args.confirm_share,
+        registry_doc=args.registry_doc,
+        confirm_registry=args.confirm_registry,
     )
     print(json.dumps(res, ensure_ascii=False, indent=2))
     return 0 if res["status"] == "ok" else 1

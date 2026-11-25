@@ -31,7 +31,7 @@ Execute these reads/commands **in parallel before sending your first reply**:
 
 1. **Inspect Local Living State**:
    - Check if `career-discovery/profile.md` exists (and read it if present, noting `Profile-Version`, `Current-Path`, and Section 四's 14-day MVP).
-   - Check if `career-discovery/.card-link.json` exists (stores `feishu_doc_id` and `feishu_url` for in-place homepage updates).
+   - Check if `career-discovery/.card-link.json` exists (stores `feishu_doc_id`, `feishu_url`, and optional `registry_doc_id` / `registry_block_id` for in-place homepage & public index updates).
 2. **Discover Available Feishu Documents & Map to Diagnostic Questions (`discover_feishu_docs.py --mode discover`)**:
    ```bash
    python3 .agent/skills/career-discovery-interview/scripts/discover_feishu_docs.py --mode discover
@@ -223,8 +223,14 @@ All local artifacts live in `career-discovery/` (created automatically). **Never
 <2–3 段真诚平实的小实验与分工邀约>
 
 ---
+
+## 动态脉冲（可选｜供同伴 AI 巡检与搭伙撮合）
+- **Progress & Playbooks（近期进展与可复用经验）**：<可选；暂未跑通可留空或省略本节>
+- **Active-Blockers（当前活跃困惑）**：<可选；建议格式 `[B-YYYYMMDD-01｜OPEN] 具体卡点`，无卡点可省略>
+
+---
 Generated-At: YYYY-MM-DD
-Schema-Version: qt-partner-card/v1
+Schema-Version: qt-partner-card/v1.1
 ```
 
 3. **Compile & Publish Rich Feishu Personal Homepage (`publish_partner_card.py`)**:
@@ -240,6 +246,18 @@ Schema-Version: qt-partner-card/v1
        --share anyone_readable \
        --confirm-share
      ```
+   - **Optional Public Index Registration (`sync_public_index.py` / `--confirm-registry`)**:
+     - After the student confirms their personal homepage looks good, ask **1 short consent question** whether they also want to register a compact digest card into the QuantTide Public Member Index (`W90qdp8azogcCZxCNGfcEEWonuc`, `https://vcnrx885ykp1.feishu.cn/docx/W90qdp8azogcCZxCNGfcEEWonuc`) so peers and their personal AIs can discover complementary partners.
+     - **Never sync silently.** ONLY after explicit student approval, either pass `--registry-doc W90qdp8azogcCZxCNGfcEEWonuc --confirm-registry` to `publish_partner_card.py`, or run:
+       ```bash
+       python3 .agent/skills/career-discovery-interview/scripts/sync_public_index.py \
+         --mode upsert \
+         --registry-doc W90qdp8azogcCZxCNGfcEEWonuc \
+         --card career-discovery/partner-card.md \
+         --state career-discovery/.card-link.json \
+         --confirm-registry
+       ```
+     - Each student owns **one atomic `<callout>` block** in the public index doc; updates use `block_replace` on that single block and never touch other members' entries.
    - **What the script produces**:
      - Generates `career-discovery/partner-card.html` (Bento-grid personal homepage) + `career-discovery/partner-card.xml` (top clickable `<cite type="user"/>` 1-click Feishu DM bar + embedded `<html5-block>` Bento homepage + bottom 2-column `<grid>` search digest).
      - Creates a new Feishu Cloud Doc on first run or **overwrites the existing `feishu_doc_id` in place** on `v2+` updates so the bio URL never changes.
@@ -253,4 +271,4 @@ Schema-Version: qt-partner-card/v1
 Before sending your final summary turn, verify:
 - [ ] Unprobed quadrants in `profile.md` say `本次未涉及/待后续实战观察` (zero guessed traits).
 - [ ] `evolution-log.md` appended a new `v<N>` entry without overwriting prior `v1..v<N-1>` entries.
-- [ ] If `Path D`: `Avoid` in `partner-card.md` contains zero raw personal complaints, `publish_partner_card.py` returned `status: "ok"`, and all presented Feishu bio candidates omit form labels and weekly hours.
+- [ ] If `Path D`: `Avoid` in `partner-card.md` contains zero raw personal complaints, `publish_partner_card.py` returned `status: "ok"`, any public index registration happened **only** after explicit student consent, and all presented Feishu bio candidates omit form labels and weekly hours.
