@@ -594,19 +594,25 @@ def publish_feishu(
     def _maybe_sync_registry(final_doc_id: str, final_url: str) -> dict | None:
         if not confirm_registry:
             return None
-        target_reg = sync_public_index.resolve_registry_doc(registry_doc, state_path)
-        if not target_reg:
-            return {"status": "skipped", "reason": "no_registry_doc_configured"}
+        target_base, target_table = sync_public_index.resolve_registry_target(
+            registry_doc, "", state_path
+        )
+        if not target_base:
+            return {"status": "skipped", "reason": "no_registry_base_configured"}
         reg_res = sync_public_index.upsert_member_to_registry(
             lark_bin=lark_bin,
-            registry_doc=target_reg,
+            base_token=target_base,
+            table_id=target_table,
             card_path=card_path,
             homepage_url=final_url,
             homepage_doc_id=final_doc_id,
         )
         if reg_res.get("status") == "ok":
-            state["registry_doc_id"] = reg_res["registry_doc_id"]
-            state["registry_block_id"] = reg_res.get("block_id", "")
+            state["registry_base_token"] = reg_res["registry_base_token"]
+            state["registry_table_id"] = reg_res["registry_table_id"]
+            state["registry_record_id"] = reg_res.get("record_id", "")
+            if reg_res.get("registry_url"):
+                state["registry_url"] = reg_res["registry_url"]
             save_state(state_path, state)
         return reg_res
 
@@ -730,9 +736,11 @@ def main() -> int:
         help="Pass only after the student explicitly confirms making the link readable.",
     )
     parser.add_argument(
+        "--registry-base",
         "--registry-doc",
+        dest="registry_doc",
         default="",
-        help="Optional Feishu public index doc token/URL to register or update this member's digest block.",
+        help="Optional Feishu Bitable public index base token/URL to register or update this member's row.",
     )
     parser.add_argument(
         "--confirm-registry",

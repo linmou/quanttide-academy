@@ -31,7 +31,7 @@ Execute these reads/commands **in parallel before sending your first reply**:
 
 1. **Inspect Local Living State**:
    - Check if `career-discovery/profile.md` exists (and read it if present, noting `Profile-Version`, `Current-Path`, and Section 四's 14-day MVP).
-   - Check if `career-discovery/.card-link.json` exists (stores `feishu_doc_id`, `feishu_url`, and optional `registry_doc_id` / `registry_block_id` for in-place homepage & public index updates).
+   - Check if `career-discovery/.card-link.json` exists (stores `feishu_doc_id`, `feishu_url`, and optional `registry_base_token` / `registry_record_id` for in-place homepage & public index updates).
 2. **Discover Available Feishu Documents & Map to Diagnostic Questions (`discover_feishu_docs.py --mode discover`)**:
    ```bash
    python3 .agent/skills/career-discovery-interview/scripts/discover_feishu_docs.py --mode discover
@@ -246,18 +246,18 @@ Schema-Version: qt-partner-card/v1.1
        --share anyone_readable \
        --confirm-share
      ```
-   - **Optional Public Index Registration (`sync_public_index.py` / `--confirm-registry`)**:
-     - After the student confirms their personal homepage looks good, ask **1 short consent question** whether they also want to register a compact digest card into the QuantTide Public Member Index (`W90qdp8azogcCZxCNGfcEEWonuc`, `https://vcnrx885ykp1.feishu.cn/docx/W90qdp8azogcCZxCNGfcEEWonuc`) so peers and their personal AIs can discover complementary partners.
-     - **Never sync silently.** ONLY after explicit student approval, either pass `--registry-doc W90qdp8azogcCZxCNGfcEEWonuc --confirm-registry` to `publish_partner_card.py`, or run:
+   - **Optional Public Index Registration (Feishu Bitable `sync_public_index.py` / `--confirm-registry`)**:
+     - After the student confirms their personal homepage looks good, ask **1 short consent question** whether they also want to register a compact row into the QuantTide Public Member Index Bitable (`VG9mbW3TGa2nFdsWUDfcZEEYnMj`, `https://vcnrx885ykp1.feishu.cn/base/VG9mbW3TGa2nFdsWUDfcZEEYnMj`) so peers and their personal AIs can filter and discover complementary partners.
+     - **Never sync silently.** ONLY after explicit student approval, either pass `--registry-base VG9mbW3TGa2nFdsWUDfcZEEYnMj --confirm-registry` to `publish_partner_card.py`, or run:
        ```bash
        python3 .agent/skills/career-discovery-interview/scripts/sync_public_index.py \
          --mode upsert \
-         --registry-doc W90qdp8azogcCZxCNGfcEEWonuc \
+         --registry-base VG9mbW3TGa2nFdsWUDfcZEEYnMj \
          --card career-discovery/partner-card.md \
          --state career-discovery/.card-link.json \
          --confirm-registry
        ```
-     - Each student owns **one atomic `<callout>` block** in the public index doc; updates use `block_replace` on that single block and never touch other members' entries.
+     - Each student owns **one atomic row** matched by `成员键` (`open_id`); updates use `lark-cli base +record-upsert --record-id ...` on that single row and never overwrite other members' records.
    - **What the script produces**:
      - Generates `career-discovery/partner-card.html` (Bento-grid personal homepage) + `career-discovery/partner-card.xml` (top clickable `<cite type="user"/>` 1-click Feishu DM bar + embedded `<html5-block>` Bento homepage + bottom 2-column `<grid>` search digest).
      - Creates a new Feishu Cloud Doc on first run or **overwrites the existing `feishu_doc_id` in place** on `v2+` updates so the bio URL never changes.
