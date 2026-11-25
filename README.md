@@ -24,6 +24,7 @@
    | 复杂任务需协作，提 PR 前沟通 | [issue-editor](./.agent/skills/issue-editor/SKILL.md) | 标题与正文模板 |
    | Issue 沟通完成后提交代码 | [pr-editor](./.agent/skills/pr-editor/SKILL.md) | 标题与描述模板 |
    | 飞书群聊待办、人员跟踪与群管理 | [feishu-workflows](./.agent/skills/feishu-workflows/SKILL.md) | 实训基地工具箱的当前通道（飞书协作接驳） |
+   | 实训职业探索访谈、认知校准与搭档名片 | [career-discovery-interview](./.agent/skills/career-discovery-interview/SKILL.md) | 本地启发式访谈、多目标权衡与飞书个人协作主页 |
 
 7. 周会简报
    - 编撰：先读 [周会简报版式](./docs/specification/weekly-brief.md)，再写入 [data/report/weekly-brief/](./data/report/weekly-brief/)

@@ -29,3 +29,9 @@ Thumbs.db
 # 数据库文件
 *.db
 *.sqlite
+
+# 本地职业探索私享档案与运行时缓存
+career-discovery/
+.card-link.json
+partner-card.html
+partner-card.xml
