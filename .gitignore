@@ -30,6 +30,10 @@ Thumbs.db
 *.db
 *.sqlite
 
-# 本地反思私享日志与公共索引巡检状态缓存
+# 本地职业探索与反思私享档案及运行时缓存
+career-discovery/
+.card-link.json
+partner-card.html
+partner-card.xml
 /cit-reflection/
 .patrol-state.json
